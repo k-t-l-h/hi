@@ -82,12 +82,31 @@ RPS в разбивке по типам запросов (запросов в с
 - Добавление пинов: 50млн * 3млн/86400 = 173 611 111  RPS
 - Поиск пинов: 2млрд/30/86400 = 771 604 938 271 RPS
 
-## 3. Логическая схема
+### 3. Логическая схема
 
 ![](internal/1.jpg)
 
-## 4. Физическая схема
+### 4. Физическая схема
 ![](internal/2.jpg)
 
-## 5. Схема проекта
+### 5. Схема проекта
 ![](internal/3.jpg)
+
+### 6. Технологии
+- JavaScript - для написания фронтенда приложения
+- React - для упрощения разработки фронтенда
+- Golang - для разработки всех сервисов
+- Redis - для кеша, хранения сессий
+- MongoDB - для хранения данных пользователей, чатов и каналов
+- Nginx - reverse proxy, раздача статики, балансинг на уровне L7
+- ScyllaDB - AP база для работы с данными для рекомендательной системы
+
+### 7. Источники
+
+[Архитектура](https://www.insight-it.ru/highload/2012/arkhitektura-pinterest/)
+
+[Использование S3](https://aws.amazon.com/ru/blogs/storage/how-pinterest-uses-amazon-s3-glacier-deep-archive-to-manage-storage-for-its-visual-discovery-engine/)
+
+[Статистика по использованию пинтереста](https://findstack.com/pinterest-statistics/)
+
+[Инфраструктура](https://medium.com/pinterest-engineering/scaling-cache-infrastructure-at-pinterest-422d6d294ece)
