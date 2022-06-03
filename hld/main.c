@@ -1,20 +1,13 @@
-
 #include <event2/listener.h>
 #include <event2/thread.h>
 #include <event2/bufferevent.h>
-#include <event2/buffer.h>
 #include <sys/sendfile.h>
-
-#include <arpa/inet.h>
-
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <arpa/inet.h>
-#include <netdb.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdbool.h>
@@ -22,7 +15,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
-#include <unistd.h>
+#include <libconfig.h>
 
 #define IS_EXT(x, ext) (strncasecmp(x, ext, sizeof(ext)) == 0)
 #define JOB_QUEUE_LEN 4096
@@ -30,7 +23,7 @@
 
 const int port = 8080;
 const int RETRIES = 3;
-const int THREAD_NUM = 4;
+int THREAD_NUM = 4;
 const useconds_t TIMEOUT_INTERVAL = 10;
 const char RESPONSE_OK_FMT[] = "HTTP/1.1 200 OK\r\nConnection: close\r\nServer: Ktlh/1.0 (Uwuntu)\r\nContent-type: %s\r\nContent-Length: %zd\r\n\r\n";
 const char FORBIDDEN[] = "HTTP/1.1 403 Forbidden\r\nServer: Ktlh/1.0 (Uwuntu)\r\nConnection: close\r\n\r\n";
@@ -38,7 +31,7 @@ const char NOT_FOUND[] = "HTTP/1.1 404 Not Found\r\nServer: Ktlh/1.0 (Uwuntu)\r\
 const char METHOD_UNIMPLEMENTED[] = "HTTP/1.1 405 Method Not Implemented\r\nServer: Ktlh/1.0 (Uwuntu)\r\nConnection: close\r\n\r\n";
 const char TOO_LONG[] = "HTTP/1.1 414 Request-URI Too Long\r\nServer: Ktlh/1.0 (Uwuntu)\r\nConnection: close\r\n\r\n";
 const char INDEX[] = "/index.html";
-const char wd[] = "/home/kali/hld/www/";
+const char* wd = "./www/";
 
 pthread_mutex_t mutex;
 int queue[JOB_QUEUE_LEN];
@@ -63,7 +56,6 @@ void enqueue (int n){
 }
 
 
-
 int dequeue (){
 	int n;
 	while (1){
@@ -84,8 +76,6 @@ int dequeue (){
 }
 		
 
-
-
 char hex2char (char c)
 {
     if ('0' <= c && c <= '9') return c - '0';
@@ -93,6 +83,7 @@ char hex2char (char c)
     if ('a' <= c && c <= 'f') return c - 'a' + 10;
     return -1;
 }
+
 static int inpl_urldecode(char* string){
 	int len = strlen(string);
 	char* cur_pos = string;
@@ -140,8 +131,6 @@ static void accept_conn_cb(struct evconnlistener *listener, evutil_socket_t sock
 }
 
 
-
-
 void* worker_func(void* opaque){
 	char buff[BUFF_LEN];
 	char response_ok[BUFF_LEN];
@@ -155,9 +144,6 @@ void* worker_func(void* opaque){
 		sock = dequeue();
 		res = -1;
 		send_file = true;
-	//	for (int i = 0; i < RETRIES && res == -1 && errno == EAGAIN; res = recv(sock, buff, sizeof(buff), 0), i++){
-	//		usleep(TIMEOUT_INTERVAL * i);
-	//	}
 		res = recv(sock, buff, sizeof(buff), 0);
 		if ( res > 0 ){
 			method = strtok(buff, "? \r");
@@ -213,8 +199,26 @@ void exit_on_term(int i){
 }
 
 int main(int argc, char** argv){
-	int sc_listen;
-	struct sockaddr_in sin;
+
+    config_t cfg;
+    config_init( &cfg);
+    if (!config_read_file( & cfg, argv[1])) {
+        perror("Couldn't parse config");
+        exit(1);
+    }
+    config_setting_t *system = config_lookup(&cfg, "server");
+    if (!config_setting_lookup_string(system, "path", &wd)) {
+        perror("Couldn't parse config path");
+        exit(1);
+    }
+
+    if (!config_setting_lookup_int(system, "thread", &THREAD_NUM)) {
+        perror("Couldn't parse config threads");
+        exit(1);
+    }
+
+
+    struct sockaddr_in sin;
 	struct event_base* evbase;
         struct evconnlistener *listener;
 	pthread_t threads[THREAD_NUM];
@@ -243,7 +247,6 @@ int main(int argc, char** argv){
 
 
 	listener = evconnlistener_new_bind(evbase, accept_conn_cb, NULL,
-//            LEV_OPT_CLOSE_ON_FREE|LEV_OPT_REUSEABLE|LEV_OPT_LEAVE_SOCKETS_BLOCKING, -1,
             LEV_OPT_REUSEABLE|LEV_OPT_LEAVE_SOCKETS_BLOCKING, -1,
             (struct sockaddr*)&sin, sizeof(sin));
 	if (!listener) {
@@ -253,8 +256,7 @@ int main(int argc, char** argv){
 
 
 	event_base_dispatch(evbase);
-	
-	//!TODO free stale events, buffers, sockets, etc.
+
 	event_base_free(evbase);
 	return 0;
 }
